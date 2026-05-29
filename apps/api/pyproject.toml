@@ -1,0 +1,24 @@
+[project]
+name = "deepcontext-api"
+version = "0.1.0"
+description = "DeepContext helps users ingest PDFs, notes, links, screenshots, diagrams, tables, and project documentation into searchable workspaces, then ask AI-powered questions with cited answers grounded in their own knowledge base."
+readme = "README.md"
+authors = [
+    { name = "netrahindocha", email = "netrahindocha1@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.136.3",
+    "pydantic-settings>=2.14.1",
+    "uvicorn[standard]>=0.48.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.3",
+    "ruff>=0.15.15",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
