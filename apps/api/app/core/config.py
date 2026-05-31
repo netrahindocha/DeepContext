@@ -13,7 +13,7 @@ class Settings(BaseSettings):
         env_prefix="DEEPCONTEXT_",
         env_file="../../.env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
     )
 
 
