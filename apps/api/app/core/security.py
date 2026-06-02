@@ -27,3 +27,11 @@ def create_access_token(
         "exp": expire,
     }
     return jwt.encode(payload, secret_key, algorithm=algorithm)
+
+
+def decode_access_token(
+    token: str,
+    secret_key: str,
+    algorithms: list[str],
+) -> dict:
+    return jwt.decode(token, secret_key, algorithms=algorithms)
