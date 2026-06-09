@@ -43,6 +43,19 @@ def register_and_login(client: TestClient) -> tuple[str, str]:
     return email, login_response.json()["access_token"]
 
 
+def create_workspace(client: TestClient, token: str, name: str) -> dict:
+    response = client.post(
+        "/api/v1/workspaces",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "name": name,
+            "description": f"{name} description",
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
 def test_create_workspace_requires_authentication(client: TestClient) -> None:
     response = client.post(
         "/api/v1/workspaces",
@@ -149,3 +162,63 @@ def test_create_workspace_rejects_empty_name(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+
+
+def test_get_workspace_returns_workspace_for_owner(client: TestClient) -> None:
+    _, token = register_and_login(client)
+    created_workspace = create_workspace(client, token, "Owner Workspace")
+
+    response = client.get(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["id"] == created_workspace["id"]
+    assert data["name"] == "Owner Workspace"
+    assert data["owner_id"] == created_workspace["owner_id"]
+
+
+def test_get_workspace_requires_authentication(client: TestClient) -> None:
+    workspace_id = uuid.uuid4()
+
+    response = client.get(f"/api/v1/workspaces/{workspace_id}")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated"}
+
+
+def test_get_workspace_returns_404_for_missing_workspace(client: TestClient) -> None:
+    _, token = register_and_login(client)
+    workspace_id = uuid.uuid4()
+
+    response = client.get(
+        f"/api/v1/workspaces/{workspace_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Workspace not found"}
+
+
+def test_get_workspace_returns_404_for_another_users_workspace(
+    client: TestClient,
+) -> None:
+    _, owner_token = register_and_login(client)
+    _, other_token = register_and_login(client)
+
+    created_workspace = create_workspace(
+        client,
+        owner_token,
+        "Private Workspace",
+    )
+
+    response = client.get(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Workspace not found"}

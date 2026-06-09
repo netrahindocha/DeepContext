@@ -1,11 +1,16 @@
-from fastapi import APIRouter, Depends, status
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db_session
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
 from app.modules.workspaces.schemas import WorkspaceCreate, WorkspaceRead
-from app.modules.workspaces.service import create_workspace, list_workspaces_for_owner
+from app.modules.workspaces.service import (
+    create_workspace,
+    get_workspace_for_owner,
+    list_workspaces_for_owner,
+)
 
 router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
 
@@ -32,3 +37,24 @@ async def list_workspaces_route(
 ) -> list[WorkspaceRead]:
     workspaces = await list_workspaces_for_owner(db=db, owner_id=current_user.id)
     return [WorkspaceRead.model_validate(workspace) for workspace in workspaces]
+
+
+@router.get("/{workspace_id}", response_model=WorkspaceRead)
+async def get_workspace_route(
+    workspace_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> WorkspaceRead:
+    workspace = await get_workspace_for_owner(
+        db=db,
+        workspace_id=workspace_id,
+        owner_id=current_user.id,
+    )
+
+    if workspace is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workspace not found",
+        )
+
+    return WorkspaceRead.model_validate(workspace)

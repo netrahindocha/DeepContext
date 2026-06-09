@@ -35,3 +35,17 @@ async def list_workspaces_for_owner(
         .order_by(Workspace.created_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def get_workspace_for_owner(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    owner_id: uuid.UUID,
+) -> Workspace | None:
+    result = await db.execute(
+        select(Workspace).where(
+            Workspace.id == workspace_id,
+            Workspace.owner_id == owner_id,
+        )
+    )
+    return result.scalar_one_or_none()
