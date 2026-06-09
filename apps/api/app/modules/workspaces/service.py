@@ -49,3 +49,21 @@ async def get_workspace_for_owner(
         )
     )
     return result.scalar_one_or_none()
+
+
+async def update_workspace(
+    db: AsyncSession,
+    workspace: Workspace,
+    name: str | None,
+    description: str | None,
+) -> Workspace:
+    if name is not None:
+        workspace.name = name
+
+    if description is not None:
+        workspace.description = description
+
+    await db.commit()
+    await db.refresh(workspace)
+
+    return workspace

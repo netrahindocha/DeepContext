@@ -222,3 +222,103 @@ def test_get_workspace_returns_404_for_another_users_workspace(
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Workspace not found"}
+
+
+def test_update_workspace_updates_workspace_for_owner(client: TestClient) -> None:
+    _, token = register_and_login(client)
+    created_workspace = create_workspace(client, token, "Original Workspace")
+
+    response = client.patch(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "name": "Updated Workspace",
+            "description": "Updated description",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["id"] == created_workspace["id"]
+    assert data["name"] == "Updated Workspace"
+    assert data["description"] == "Updated description"
+    assert data["owner_id"] == created_workspace["owner_id"]
+
+
+def test_update_workspace_requires_authentication(client: TestClient) -> None:
+    workspace_id = uuid.uuid4()
+
+    response = client.patch(
+        f"/api/v1/workspaces/{workspace_id}",
+        json={"name": "Updated Workspace"},
+    )
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated"}
+
+
+def test_update_workspace_returns_404_for_missing_workspace(client: TestClient) -> None:
+    _, token = register_and_login(client)
+    workspace_id = uuid.uuid4()
+
+    response = client.patch(
+        f"/api/v1/workspaces/{workspace_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Updated workspace"},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Workspace not found"}
+
+
+def test_update_workspace_returns_404_for_another_users_workspace(
+    client: TestClient,
+) -> None:
+    _, owner_token = register_and_login(client)
+    _, other_token = register_and_login(client)
+
+    created_workspace = create_workspace(
+        client,
+        owner_token,
+        "Private Workspace",
+    )
+
+    response = client.patch(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {other_token}"},
+        json={"name": "Unauthorized Update"},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Workspace not found"}
+
+
+def test_update_workspace_rejects_empty_name(client: TestClient) -> None:
+    _, token = register_and_login(client)
+    created_workspace = create_workspace(client, token, "Original Workspace")
+
+    response = client.patch(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": ""},
+    )
+
+    assert response.status_code == 422
+
+
+def test_update_workspace_ignores_owner_id(client: TestClient) -> None:
+    _, token = register_and_login(client)
+    created_workspace = create_workspace(client, token, "Original Workspace")
+
+    response = client.patch(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "name": "Updated Workspace",
+            "owner_id": str(uuid.uuid4()),
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["owner_id"] == created_workspace["owner_id"]

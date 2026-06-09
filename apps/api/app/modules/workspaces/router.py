@@ -5,11 +5,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db_session
 from app.modules.auth.dependencies import get_current_user
 from app.modules.auth.models import User
-from app.modules.workspaces.schemas import WorkspaceCreate, WorkspaceRead
+from app.modules.workspaces.schemas import (
+    WorkspaceCreate,
+    WorkspaceRead,
+    WorkspaceUpdate,
+)
 from app.modules.workspaces.service import (
     create_workspace,
     get_workspace_for_owner,
     list_workspaces_for_owner,
+    update_workspace,
 )
 
 router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
@@ -58,3 +63,32 @@ async def get_workspace_route(
         )
 
     return WorkspaceRead.model_validate(workspace)
+
+
+@router.patch("/{workspace_id}", response_model=WorkspaceRead)
+async def update_workspace_route(
+    workspace_id: uuid.UUID,
+    payload: WorkspaceUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> WorkspaceRead:
+    workspace = await get_workspace_for_owner(
+        db=db,
+        workspace_id=workspace_id,
+        owner_id=current_user.id,
+    )
+
+    if workspace is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workspace not found",
+        )
+
+    updated_workspace = await update_workspace(
+        db=db,
+        workspace=workspace,
+        name=payload.name,
+        description=payload.description,
+    )
+
+    return WorkspaceRead.model_validate(updated_workspace)
