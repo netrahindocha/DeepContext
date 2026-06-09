@@ -1,0 +1,37 @@
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.modules.workspaces.models import Workspace
+
+
+async def create_workspace(
+    db: AsyncSession,
+    owner_id: uuid.UUID,
+    name: str,
+    description: str | None,
+) -> Workspace:
+    workspace = Workspace(
+        owner_id=owner_id,
+        name=name,
+        description=description,
+    )
+
+    db.add(workspace)
+    await db.commit()
+    await db.refresh(workspace)
+
+    return workspace
+
+
+async def list_workspaces_for_owner(
+    db: AsyncSession,
+    owner_id: uuid.UUID,
+) -> list[Workspace]:
+    result = await db.execute(
+        select(Workspace)
+        .where(Workspace.owner_id == owner_id)
+        .order_by(Workspace.created_at.desc())
+    )
+    return list(result.scalars().all())

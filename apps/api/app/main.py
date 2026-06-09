@@ -3,6 +3,7 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.modules.health.router import router as health_router
 from app.modules.auth.router import router as auth_router
+from app.modules.workspaces.router import router as workspaces_router
 
 
 def create_app() -> FastAPI:
@@ -11,6 +12,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, debug=settings.debug)
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(workspaces_router)
 
     return app
 
