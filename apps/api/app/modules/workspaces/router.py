@@ -12,6 +12,7 @@ from app.modules.workspaces.schemas import (
 )
 from app.modules.workspaces.service import (
     create_workspace,
+    delete_workspace,
     get_workspace_for_owner,
     list_workspaces_for_owner,
     update_workspace,
@@ -92,3 +93,23 @@ async def update_workspace_route(
     )
 
     return WorkspaceRead.model_validate(updated_workspace)
+
+
+@router.delete("/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_workspace_route(
+    workspace_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> None:
+    workspace = await get_workspace_for_owner(
+        db=db,
+        workspace_id=workspace_id,
+        owner_id=current_user.id,
+    )
+
+    if workspace is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Workspace not found"
+        )
+
+    await delete_workspace(db=db, workspace=workspace)

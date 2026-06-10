@@ -67,3 +67,8 @@ async def update_workspace(
     await db.refresh(workspace)
 
     return workspace
+
+
+async def delete_workspace(db: AsyncSession, workspace: Workspace) -> None:
+    await db.delete(workspace)
+    await db.commit()

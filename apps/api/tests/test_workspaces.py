@@ -322,3 +322,90 @@ def test_update_workspace_ignores_owner_id(client: TestClient) -> None:
 
     assert response.status_code == 200
     assert response.json()["owner_id"] == created_workspace["owner_id"]
+
+
+def test_delete_workspace_deletes_workspace_for_owner(client: TestClient) -> None:
+    _, token = register_and_login(client)
+    created_workspace = create_workspace(client, token, "Workspace to Delete")
+
+    delete_response = client.delete(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert delete_response.status_code == 204
+    assert delete_response.content == b""
+
+    get_response = client.get(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert get_response.status_code == 404
+    assert get_response.json() == {"detail": "Workspace not found"}
+
+
+def test_delete_workspace_removes_workspace_from_list(client: TestClient) -> None:
+    _, token = register_and_login(client)
+    created_workspace = create_workspace(client, token, "Workspace to Delete")
+
+    delete_response = client.delete(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert delete_response.status_code == 204
+
+    list_response = client.get(
+        "/api/v1/workspaces",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert list_response.status_code == 200
+    assert list_response.json() == []
+
+
+def test_delete_workspace_requires_authentication(client: TestClient) -> None:
+    workspace_id = uuid.uuid4()
+
+    response = client.delete(f"/api/v1/workspaces/{workspace_id}")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Not authenticated"}
+
+
+def test_delete_workspace_returns_404_for_missing_workspace(client: TestClient) -> None:
+    _, token = register_and_login(client)
+    workspace_id = uuid.uuid4()
+
+    delete_response = client.delete(
+        f"/api/v1/workspaces/{workspace_id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert delete_response.status_code == 404
+    assert delete_response.json() == {"detail": "Workspace not found"}
+
+
+def test_delete_workspace_returns_404_for_another_users_workspace(
+    client: TestClient,
+) -> None:
+    _, owner_token = register_and_login(client)
+    _, other_token = register_and_login(client)
+
+    created_workspace = create_workspace(client, owner_token, "Private Workspace")
+
+    response = client.delete(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {other_token}"},
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Workspace not found"}
+
+    owner_get_response = client.get(
+        f"/api/v1/workspaces/{created_workspace['id']}",
+        headers={"Authorization": f"Bearer {owner_token}"},
+    )
+
+    assert owner_get_response.status_code == 200
