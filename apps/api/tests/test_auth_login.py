@@ -1,20 +1,6 @@
-import asyncio
 import uuid
-from collections.abc import Generator
 
-import pytest
 from fastapi.testclient import TestClient
-
-from app.db.session import engine
-from app.main import app
-
-
-@pytest.fixture
-def client() -> Generator[TestClient]:
-    with TestClient(app) as test_client:
-        yield test_client
-
-    asyncio.run(engine.dispose())
 
 
 def test_login_returns_access_token_for_valid_credentials(client: TestClient) -> None:

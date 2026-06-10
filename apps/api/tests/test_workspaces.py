@@ -1,59 +1,6 @@
-import asyncio
 import uuid
-from collections.abc import Generator
 
-import pytest
 from fastapi.testclient import TestClient
-
-from app.db.session import engine
-from app.main import app
-
-
-@pytest.fixture
-def client() -> Generator[TestClient]:
-    with TestClient(app) as test_client:
-        yield test_client
-
-    asyncio.run(engine.dispose())
-
-
-def register_and_login(client: TestClient) -> tuple[str, str]:
-    email = f"user-{uuid.uuid4()}@example.com"
-    password = "strongpassword123"
-
-    register_response = client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "password": password,
-        },
-    )
-    assert register_response.status_code == 201
-
-    login_response = client.post(
-        "/api/v1/auth/login",
-        json={
-            "email": email,
-            "password": password,
-        },
-    )
-
-    assert login_response.status_code == 200
-
-    return email, login_response.json()["access_token"]
-
-
-def create_workspace(client: TestClient, token: str, name: str) -> dict:
-    response = client.post(
-        "/api/v1/workspaces",
-        headers={"Authorization": f"Bearer {token}"},
-        json={
-            "name": name,
-            "description": f"{name} description",
-        },
-    )
-    assert response.status_code == 201
-    return response.json()
 
 
 def test_create_workspace_requires_authentication(client: TestClient) -> None:
@@ -69,7 +16,10 @@ def test_create_workspace_requires_authentication(client: TestClient) -> None:
     assert response.json() == {"detail": "Not authenticated"}
 
 
-def test_create_workspace_returns_created_workspace(client: TestClient) -> None:
+def test_create_workspace_returns_created_workspace(
+    client: TestClient,
+    register_and_login,
+) -> None:
     _, token = register_and_login(client)
 
     response = client.post(
@@ -101,6 +51,7 @@ def test_list_workspaces_requires_authentication(client: TestClient) -> None:
 
 def test_list_workspaces_returns_only_current_users_workspaces(
     client: TestClient,
+    register_and_login,
 ) -> None:
     _, first_token = register_and_login(client)
     _, second_token = register_and_login(client)
@@ -149,7 +100,10 @@ def test_list_workspaces_returns_only_current_users_workspaces(
     assert first_workspaces[0]["owner_id"] != second_workspaces[0]["owner_id"]
 
 
-def test_create_workspace_rejects_empty_name(client: TestClient) -> None:
+def test_create_workspace_rejects_empty_name(
+    client: TestClient,
+    register_and_login,
+) -> None:
     _, token = register_and_login(client)
 
     response = client.post(
@@ -164,7 +118,11 @@ def test_create_workspace_rejects_empty_name(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_get_workspace_returns_workspace_for_owner(client: TestClient) -> None:
+def test_get_workspace_returns_workspace_for_owner(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
     _, token = register_and_login(client)
     created_workspace = create_workspace(client, token, "Owner Workspace")
 
@@ -190,7 +148,10 @@ def test_get_workspace_requires_authentication(client: TestClient) -> None:
     assert response.json() == {"detail": "Not authenticated"}
 
 
-def test_get_workspace_returns_404_for_missing_workspace(client: TestClient) -> None:
+def test_get_workspace_returns_404_for_missing_workspace(
+    client: TestClient,
+    register_and_login,
+) -> None:
     _, token = register_and_login(client)
     workspace_id = uuid.uuid4()
 
@@ -205,6 +166,8 @@ def test_get_workspace_returns_404_for_missing_workspace(client: TestClient) -> 
 
 def test_get_workspace_returns_404_for_another_users_workspace(
     client: TestClient,
+    register_and_login,
+    create_workspace,
 ) -> None:
     _, owner_token = register_and_login(client)
     _, other_token = register_and_login(client)
@@ -224,7 +187,11 @@ def test_get_workspace_returns_404_for_another_users_workspace(
     assert response.json() == {"detail": "Workspace not found"}
 
 
-def test_update_workspace_updates_workspace_for_owner(client: TestClient) -> None:
+def test_update_workspace_updates_workspace_for_owner(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
     _, token = register_and_login(client)
     created_workspace = create_workspace(client, token, "Original Workspace")
 
@@ -258,7 +225,10 @@ def test_update_workspace_requires_authentication(client: TestClient) -> None:
     assert response.json() == {"detail": "Not authenticated"}
 
 
-def test_update_workspace_returns_404_for_missing_workspace(client: TestClient) -> None:
+def test_update_workspace_returns_404_for_missing_workspace(
+    client: TestClient,
+    register_and_login,
+) -> None:
     _, token = register_and_login(client)
     workspace_id = uuid.uuid4()
 
@@ -274,6 +244,8 @@ def test_update_workspace_returns_404_for_missing_workspace(client: TestClient) 
 
 def test_update_workspace_returns_404_for_another_users_workspace(
     client: TestClient,
+    register_and_login,
+    create_workspace,
 ) -> None:
     _, owner_token = register_and_login(client)
     _, other_token = register_and_login(client)
@@ -294,7 +266,11 @@ def test_update_workspace_returns_404_for_another_users_workspace(
     assert response.json() == {"detail": "Workspace not found"}
 
 
-def test_update_workspace_rejects_empty_name(client: TestClient) -> None:
+def test_update_workspace_rejects_empty_name(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
     _, token = register_and_login(client)
     created_workspace = create_workspace(client, token, "Original Workspace")
 
@@ -307,7 +283,11 @@ def test_update_workspace_rejects_empty_name(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_update_workspace_ignores_owner_id(client: TestClient) -> None:
+def test_update_workspace_ignores_owner_id(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
     _, token = register_and_login(client)
     created_workspace = create_workspace(client, token, "Original Workspace")
 
@@ -324,7 +304,11 @@ def test_update_workspace_ignores_owner_id(client: TestClient) -> None:
     assert response.json()["owner_id"] == created_workspace["owner_id"]
 
 
-def test_delete_workspace_deletes_workspace_for_owner(client: TestClient) -> None:
+def test_delete_workspace_deletes_workspace_for_owner(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
     _, token = register_and_login(client)
     created_workspace = create_workspace(client, token, "Workspace to Delete")
 
@@ -345,7 +329,11 @@ def test_delete_workspace_deletes_workspace_for_owner(client: TestClient) -> Non
     assert get_response.json() == {"detail": "Workspace not found"}
 
 
-def test_delete_workspace_removes_workspace_from_list(client: TestClient) -> None:
+def test_delete_workspace_removes_workspace_from_list(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
     _, token = register_and_login(client)
     created_workspace = create_workspace(client, token, "Workspace to Delete")
 
@@ -374,7 +362,10 @@ def test_delete_workspace_requires_authentication(client: TestClient) -> None:
     assert response.json() == {"detail": "Not authenticated"}
 
 
-def test_delete_workspace_returns_404_for_missing_workspace(client: TestClient) -> None:
+def test_delete_workspace_returns_404_for_missing_workspace(
+    client: TestClient,
+    register_and_login,
+) -> None:
     _, token = register_and_login(client)
     workspace_id = uuid.uuid4()
 
@@ -389,6 +380,8 @@ def test_delete_workspace_returns_404_for_missing_workspace(client: TestClient) 
 
 def test_delete_workspace_returns_404_for_another_users_workspace(
     client: TestClient,
+    register_and_login,
+    create_workspace,
 ) -> None:
     _, owner_token = register_and_login(client)
     _, other_token = register_and_login(client)

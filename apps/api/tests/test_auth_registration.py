@@ -1,20 +1,6 @@
-import asyncio
 import uuid
-from collections.abc import Generator
 
-import pytest
 from fastapi.testclient import TestClient
-
-from app.db.session import engine
-from app.main import app
-
-
-@pytest.fixture
-def client() -> Generator[TestClient]:
-    with TestClient(app) as test_client:
-        yield test_client
-
-    asyncio.run(engine.dispose())
 
 
 def test_register_user_returns_created_user(client: TestClient) -> None:

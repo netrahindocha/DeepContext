@@ -1,58 +1,6 @@
-import asyncio
 import uuid
-from collections.abc import Generator
 
-import pytest
 from fastapi.testclient import TestClient
-
-from app.db.session import engine
-from app.main import app
-
-
-@pytest.fixture
-def client() -> Generator[TestClient]:
-    with TestClient(app) as test_client:
-        yield test_client
-
-    asyncio.run(engine.dispose())
-
-
-def register_and_login(client: TestClient) -> tuple[str, str]:
-    email = f"user-{uuid.uuid4()}@example.com"
-    password = "strongpassword123"
-
-    register_response = client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "password": password,
-        },
-    )
-    assert register_response.status_code == 201
-
-    login_response = client.post(
-        "/api/v1/auth/login",
-        json={
-            "email": email,
-            "password": password,
-        },
-    )
-    assert login_response.status_code == 200
-
-    return email, login_response.json()["access_token"]
-
-
-def create_workspace(client: TestClient, token: str, name: str) -> dict:
-    response = client.post(
-        "/api/v1/workspaces",
-        headers={"Authorization": f"Bearer {token}"},
-        json={
-            "name": name,
-            "description": f"{name} description",
-        },
-    )
-    assert response.status_code == 201
-    return response.json()
 
 
 def test_create_document_requires_authentication(client: TestClient) -> None:
@@ -70,7 +18,11 @@ def test_create_document_requires_authentication(client: TestClient) -> None:
     assert response.json() == {"detail": "Not authenticated"}
 
 
-def test_create_document_returns_created_document(client: TestClient) -> None:
+def test_create_document_returns_created_document(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
     _, token = register_and_login(client)
     workspace = create_workspace(client, token, "Project Workspace")
 
@@ -97,7 +49,11 @@ def test_create_document_returns_created_document(client: TestClient) -> None:
     assert "updated_at" in data
 
 
-def test_create_document_rejects_invalid_source_type(client: TestClient) -> None:
+def test_create_document_rejects_invalid_source_type(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
     _, token = register_and_login(client)
     workspace = create_workspace(client, token, "Project Workspace")
 
@@ -113,7 +69,11 @@ def test_create_document_rejects_invalid_source_type(client: TestClient) -> None
     assert response.status_code == 422
 
 
-def test_create_document_rejects_empty_title(client: TestClient) -> None:
+def test_create_document_rejects_empty_title(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
     _, token = register_and_login(client)
     workspace = create_workspace(client, token, "Project Workspace")
 
@@ -131,6 +91,8 @@ def test_create_document_rejects_empty_title(client: TestClient) -> None:
 
 def test_create_document_returns_404_for_another_users_workspace(
     client: TestClient,
+    register_and_login,
+    create_workspace,
 ) -> None:
     _, owner_token = register_and_login(client)
     _, other_token = register_and_login(client)
@@ -150,7 +112,10 @@ def test_create_document_returns_404_for_another_users_workspace(
     assert response.json() == {"detail": "Workspace not found"}
 
 
-def test_create_document_returns_404_for_missing_workspace(client: TestClient) -> None:
+def test_create_document_returns_404_for_missing_workspace(
+    client: TestClient,
+    register_and_login,
+) -> None:
     _, token = register_and_login(client)
     workspace_id = uuid.uuid4()
 
@@ -178,6 +143,8 @@ def test_list_documents_requires_authentication(client: TestClient) -> None:
 
 def test_list_documents_returns_documents_for_workspace_owner(
     client: TestClient,
+    register_and_login,
+    create_workspace,
 ) -> None:
     _, token = register_and_login(client)
     workspace = create_workspace(client, token, "Project Workspace")
@@ -208,6 +175,8 @@ def test_list_documents_returns_documents_for_workspace_owner(
 
 def test_list_documents_returns_404_for_another_users_workspace(
     client: TestClient,
+    register_and_login,
+    create_workspace,
 ) -> None:
     _, owner_token = register_and_login(client)
     _, other_token = register_and_login(client)
@@ -223,7 +192,10 @@ def test_list_documents_returns_404_for_another_users_workspace(
     assert response.json() == {"detail": "Workspace not found"}
 
 
-def test_list_documents_returns_404_for_missing_workspace(client: TestClient) -> None:
+def test_list_documents_returns_404_for_missing_workspace(
+    client: TestClient,
+    register_and_login,
+) -> None:
     _, token = register_and_login(client)
     workspace_id = uuid.uuid4()
 
