@@ -1,3 +1,6 @@
+import pytest
+from sqlalchemy.exc import SQLAlchemyError
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -44,3 +47,14 @@ def test_readiness_check_returns_503_when_database_unavailable(monkeypatch) -> N
         "status": "not_ready",
         "database": "unavailable",
     }
+
+
+@pytest.mark.anyio
+async def test_check_database_connection_returns_false_on_database_error() -> None:
+    from app.db.health import check_database_connection
+
+    class BrokenEngine:
+        def connect(self):
+            raise SQLAlchemyError("database unavailable")
+
+    assert await check_database_connection(BrokenEngine()) is False
