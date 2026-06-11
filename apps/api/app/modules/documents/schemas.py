@@ -22,3 +22,9 @@ class DocumentRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class DocumentUpdate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+
+    model_config = ConfigDict(extra="forbid")

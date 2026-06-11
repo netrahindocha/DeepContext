@@ -42,3 +42,40 @@ async def list_documents_for_workspace(
         .order_by(Document.created_at.desc())
     )
     return list(result.scalars().all())
+
+
+async def get_document_for_workspace(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    document_id: uuid.UUID,
+) -> Document | None:
+    result = await db.execute(
+        select(Document).where(
+            Document.id == document_id,
+            Document.workspace_id == workspace_id,
+            Document.owner_id == owner_id,
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_document(
+    db: AsyncSession,
+    document: Document,
+    title: str,
+) -> Document:
+    document.title = title
+
+    await db.commit()
+    await db.refresh(document)
+
+    return document
+
+
+async def delete_document(
+    db: AsyncSession,
+    document: Document,
+) -> None:
+    await db.delete(document)
+    await db.commit()
