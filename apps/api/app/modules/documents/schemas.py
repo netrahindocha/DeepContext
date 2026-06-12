@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class DocumentCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     source_type: Literal["text", "markdown"]
+    content: str = Field(min_length=1)
 
 
 class DocumentRead(BaseModel):

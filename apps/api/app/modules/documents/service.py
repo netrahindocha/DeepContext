@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.documents.models import Document
+from app.modules.documents.models import Document, SourceElement
 
 
 async def create_document(
@@ -12,16 +12,29 @@ async def create_document(
     owner_id: uuid.UUID,
     title: str,
     source_type: str,
+    content: str,
 ) -> Document:
     document = Document(
         workspace_id=workspace_id,
         owner_id=owner_id,
         title=title,
         source_type=source_type,
-        status="pending",
+        status="completed",
     )
-
     db.add(document)
+    await db.flush()
+
+    source_element = SourceElement(
+        document_id=document.id,
+        workspace_id=workspace_id,
+        owner_id=owner_id,
+        element_index=0,
+        modality="text",
+        raw_content_text=content,
+        status="completed",
+    )
+    db.add(source_element)
+
     await db.commit()
     await db.refresh(document)
 

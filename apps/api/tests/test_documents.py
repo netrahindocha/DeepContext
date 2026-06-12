@@ -9,6 +9,7 @@ def create_document(
     workspace_id: str,
     title: str,
     source_type: str = "text",
+    content: str = "Document body",
 ) -> dict:
     response = client.post(
         f"/api/v1/workspaces/{workspace_id}/documents",
@@ -16,6 +17,7 @@ def create_document(
         json={
             "title": title,
             "source_type": source_type,
+            "content": content,
         },
     )
     assert response.status_code == 201
@@ -51,6 +53,7 @@ def test_create_document_returns_created_document(
         json={
             "title": "Project Notes",
             "source_type": "text",
+            "content": "Raw project notes",
         },
     )
 
@@ -61,8 +64,9 @@ def test_create_document_returns_created_document(
     assert data["owner_id"] == workspace["owner_id"]
     assert data["title"] == "Project Notes"
     assert data["source_type"] == "text"
-    assert data["status"] == "pending"
+    assert data["status"] == "completed"
     assert data["error_message"] is None
+    assert "content" not in data
     assert "id" in data
     assert "created_at" in data
     assert "updated_at" in data
@@ -124,6 +128,7 @@ def test_create_document_returns_404_for_another_users_workspace(
         json={
             "title": "Unauthorized Notes",
             "source_type": "text",
+            "content": "Raw unauthorized notes",
         },
     )
 
@@ -144,11 +149,53 @@ def test_create_document_returns_404_for_missing_workspace(
         json={
             "title": "Project Notes",
             "source_type": "text",
+            "content": "Raw project notes",
         },
     )
 
     assert response.status_code == 404
     assert response.json() == {"detail": "Workspace not found"}
+
+
+def test_create_document_rejects_missing_content(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
+    _, token = register_and_login(client)
+    workspace = create_workspace(client, token, "Project Workspace")
+
+    response = client.post(
+        f"/api/v1/workspaces/{workspace['id']}/documents",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "Project Notes",
+            "source_type": "text",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_create_document_rejects_empty_content(
+    client: TestClient,
+    register_and_login,
+    create_workspace,
+) -> None:
+    _, token = register_and_login(client)
+    workspace = create_workspace(client, token, "Project Workspace")
+
+    response = client.post(
+        f"/api/v1/workspaces/{workspace['id']}/documents",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "Project Notes",
+            "source_type": "text",
+            "content": "",
+        },
+    )
+
+    assert response.status_code == 422
 
 
 def test_list_documents_requires_authentication(client: TestClient) -> None:
@@ -174,6 +221,7 @@ def test_list_documents_returns_documents_for_workspace_owner(
         json={
             "title": "Project Notes",
             "source_type": "markdown",
+            "content": "Raw markdown notes",
         },
     )
     assert create_response.status_code == 201

@@ -47,6 +47,7 @@ async def create_document_route(
         owner_id=current_user.id,
         title=payload.title,
         source_type=payload.source_type,
+        content=payload.content,
     )
 
     return DocumentRead.model_validate(document)
