@@ -92,3 +92,39 @@ async def delete_document(
 ) -> None:
     await db.delete(document)
     await db.commit()
+
+
+async def list_source_elements_for_document(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    document_id: uuid.UUID,
+) -> list[SourceElement]:
+    result = await db.execute(
+        select(SourceElement)
+        .where(
+            SourceElement.document_id == document_id,
+            SourceElement.workspace_id == workspace_id,
+            SourceElement.owner_id == owner_id,
+        )
+        .order_by(SourceElement.element_index.asc())
+    )
+    return list(result.scalars().all())
+
+
+async def get_source_element_for_document(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    document_id: uuid.UUID,
+    source_element_id: uuid.UUID,
+) -> SourceElement | None:
+    result = await db.execute(
+        select(SourceElement).where(
+            SourceElement.id == source_element_id,
+            SourceElement.document_id == document_id,
+            SourceElement.workspace_id == workspace_id,
+            SourceElement.owner_id == owner_id,
+        )
+    )
+    return result.scalar_one_or_none()

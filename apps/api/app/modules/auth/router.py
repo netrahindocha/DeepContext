@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -59,5 +60,12 @@ async def register_user(
             detail="Email is already registered",
         )
 
-    user = await create_user(db, payload.email, payload.password)
+    try:
+        user = await create_user(db, payload.email, payload.password)
+    except IntegrityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email is already registered",
+        ) from None
+
     return UserRead.model_validate(user)

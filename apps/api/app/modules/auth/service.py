@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password
@@ -24,7 +25,13 @@ async def create_user(db: AsyncSession, email: str, password: str) -> User:
     )
 
     db.add(user)
-    await db.commit()
+
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise
+
     await db.refresh(user)
 
     return user

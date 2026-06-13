@@ -283,7 +283,7 @@ def test_update_workspace_rejects_empty_name(
     assert response.status_code == 422
 
 
-def test_update_workspace_ignores_owner_id(
+def test_update_workspace_rejects_protected_fields(
     client: TestClient,
     register_and_login,
     create_workspace,
@@ -300,8 +300,7 @@ def test_update_workspace_ignores_owner_id(
         },
     )
 
-    assert response.status_code == 200
-    assert response.json()["owner_id"] == created_workspace["owner_id"]
+    assert response.status_code == 422
 
 
 def test_delete_workspace_deletes_workspace_for_owner(
