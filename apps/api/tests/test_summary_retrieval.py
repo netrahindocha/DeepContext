@@ -9,6 +9,7 @@ from app.modules.auth.service import create_user
 from app.modules.documents.service import (
     create_document,
     create_placeholder_embedding,
+    get_source_elements_for_summaries,
     search_source_element_summaries,
 )
 from app.modules.workspaces.service import create_workspace
@@ -178,3 +179,65 @@ async def test_search_source_element_summaries_scopes_by_owner(
     assert results[0].workspace_id == workspace.id
     assert results[0].owner_id == first_user.id
     assert results[0].distance >= 0
+
+
+@pytest.mark.anyio
+async def test_get_source_elements_for_summaries_returns_raw_evidence(
+    db_session: AsyncSession,
+) -> None:
+    user = await create_user(
+        db_session,
+        email=f"user-{uuid.uuid4()}@example.com",
+        password="strongpassword123",
+    )
+    workspace = await create_workspace(
+        db_session,
+        owner_id=user.id,
+        name="Project Workspace",
+        description="Project workspace description",
+    )
+
+    await create_document(
+        db=db_session,
+        workspace_id=workspace.id,
+        owner_id=user.id,
+        title="Project Notes",
+        source_type="text",
+        content="Raw evidence for answer generation",
+    )
+
+    summary_results = await search_source_element_summaries(
+        db=db_session,
+        workspace_id=workspace.id,
+        owner_id=user.id,
+        query_embedding=create_placeholder_embedding(
+            "Raw evidence for answer generation"
+        ),
+        limit=5,
+    )
+
+    source_elements = await get_source_elements_for_summaries(
+        db=db_session,
+        workspace_id=workspace.id,
+        owner_id=user.id,
+        summary_results=summary_results,
+    )
+
+    assert len(source_elements) == 1
+    assert source_elements[0].workspace_id == workspace.id
+    assert source_elements[0].owner_id == user.id
+    assert source_elements[0].raw_content_text == "Raw evidence for answer generation"
+
+
+@pytest.mark.anyio
+async def test_get_source_elements_for_summaries_returns_empty_list_for_no_results(
+    db_session: AsyncSession,
+) -> None:
+    source_elements = await get_source_elements_for_summaries(
+        db=db_session,
+        workspace_id=uuid.uuid4(),
+        owner_id=uuid.uuid4(),
+        summary_results=[],
+    )
+
+    assert source_elements == []

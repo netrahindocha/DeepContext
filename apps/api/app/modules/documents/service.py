@@ -204,3 +204,27 @@ async def search_source_element_summaries(
         )
         for summary, distance_value in result.all()
     ]
+
+
+async def get_source_elements_for_summaries(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    summary_results: list[SummarySearchResult],
+) -> list[SourceElement]:
+    source_element_ids = [result.source_element_id for result in summary_results]
+
+    if not source_element_ids:
+        return []
+
+    result = await db.execute(
+        select(SourceElement)
+        .where(
+            SourceElement.id.in_(source_element_ids),
+            SourceElement.workspace_id == workspace_id,
+            SourceElement.owner_id == owner_id,
+        )
+        .order_by(SourceElement.element_index.asc())
+    )
+
+    return list(result.scalars().all())
