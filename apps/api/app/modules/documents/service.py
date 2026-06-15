@@ -3,7 +3,23 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.documents.models import Document, SourceElement
+from app.modules.documents.models import (
+    Document,
+    SourceElement,
+    SourceElementSummary,
+)
+
+
+EMBEDDING_DIMENSION = 1536
+
+
+def create_placeholder_embedding(text: str) -> list[float]:
+    embedding = [0.0] * EMBEDDING_DIMENSION
+
+    for index, character in enumerate(text[:EMBEDDING_DIMENSION]):
+        embedding[index] = (ord(character) % 100) / 100
+
+    return embedding
 
 
 async def create_document(
@@ -34,6 +50,20 @@ async def create_document(
         status="completed",
     )
     db.add(source_element)
+    await db.flush()
+
+    summary_text = content[:500]
+
+    summary = SourceElementSummary(
+        source_element_id=source_element.id,
+        document_id=document.id,
+        workspace_id=workspace_id,
+        owner_id=owner_id,
+        summary_text=summary_text,
+        embedding=create_placeholder_embedding(summary_text),
+        status="completed",
+    )
+    db.add(summary)
 
     await db.commit()
     await db.refresh(document)
