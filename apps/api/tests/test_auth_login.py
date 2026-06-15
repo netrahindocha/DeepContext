@@ -33,6 +33,34 @@ def test_login_returns_access_token_for_valid_credentials(client: TestClient) ->
     assert data["access_token"]
 
 
+def test_login_accepts_email_with_different_casing(client: TestClient) -> None:
+    unique_id = uuid.uuid4()
+    registered_email = f"user-{unique_id}@example.com"
+    login_email = f"User-{unique_id}@Example.com"
+    password = "strongpassword123"
+
+    register_response = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": registered_email,
+            "password": password,
+        },
+    )
+
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": login_email,
+            "password": password,
+        },
+    )
+
+    assert login_response.status_code == 200
+    assert login_response.json()["access_token"]
+
+
 def test_login_rejects_wrong_password(client: TestClient) -> None:
     email = f"user-{uuid.uuid4()}@example.com"
 

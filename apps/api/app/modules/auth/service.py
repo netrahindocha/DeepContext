@@ -8,8 +8,13 @@ from app.core.security import hash_password
 from app.modules.auth.models import User
 
 
+def normalize_email(email: str) -> str:
+    return email.lower()
+
+
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(select(User).where(User.email == email))
+    normalized_email = normalize_email(email)
+    result = await db.execute(select(User).where(User.email == normalized_email))
     return result.scalar_one_or_none()
 
 
@@ -20,7 +25,7 @@ async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> User | None:
 
 async def create_user(db: AsyncSession, email: str, password: str) -> User:
     user = User(
-        email=email,
+        email=normalize_email(email),
         hashed_password=hash_password(password),
     )
 

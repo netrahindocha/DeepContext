@@ -3,20 +3,17 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from fastapi.testclient import TestClient
 
-from app.main import app
 
-
-client = TestClient(app)
-
-
-def test_health_check_returns_ok() -> None:
+def test_health_check_returns_ok(client: TestClient) -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_readiness_check_returns_ready_when_database_available(monkeypatch) -> None:
+def test_readiness_check_returns_ready_when_database_available(
+    client: TestClient, monkeypatch
+) -> None:
     async def fake_check_database_connection(engine) -> bool:
         return True
 
@@ -31,7 +28,9 @@ def test_readiness_check_returns_ready_when_database_available(monkeypatch) -> N
     assert response.json() == {"status": "ready", "database": "available"}
 
 
-def test_readiness_check_returns_503_when_database_unavailable(monkeypatch) -> None:
+def test_readiness_check_returns_503_when_database_unavailable(
+    client: TestClient, monkeypatch
+) -> None:
     async def fake_check_database_connection(engine) -> bool:
         return False
 
@@ -56,5 +55,16 @@ async def test_check_database_connection_returns_false_on_database_error() -> No
     class BrokenEngine:
         def connect(self):
             raise SQLAlchemyError("database unavailable")
+
+    assert await check_database_connection(BrokenEngine()) is False
+
+
+@pytest.mark.anyio
+async def test_check_database_connection_returns_false_on_network_error() -> None:
+    from app.db.health import check_database_connection
+
+    class BrokenEngine:
+        def connect(self):
+            raise OSError("network unavailable")
 
     assert await check_database_connection(BrokenEngine()) is False
