@@ -10,12 +10,21 @@ from app.modules.workspaces.schemas import (
     WorkspaceRead,
     WorkspaceUpdate,
 )
+from app.modules.documents.schemas import (
+    WorkspaceSearchRequest,
+    WorkspaceSearchResponse,
+    WorkspaceSearchResult,
+)
 from app.modules.workspaces.service import (
     create_workspace,
     delete_workspace,
     get_workspace_for_owner,
     list_workspaces_for_owner,
     update_workspace,
+)
+from app.modules.documents.service import (
+    create_placeholder_embedding,
+    search_source_element_summaries,
 )
 
 router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
@@ -64,6 +73,48 @@ async def get_workspace_route(
         )
 
     return WorkspaceRead.model_validate(workspace)
+
+
+@router.post("/{workspace_id}/search", response_model=WorkspaceSearchResponse)
+async def search_workspace_route(
+    workspace_id: uuid.UUID,
+    payload: WorkspaceSearchRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> WorkspaceSearchResponse:
+    workspace = await get_workspace_for_owner(
+        db=db,
+        workspace_id=workspace_id,
+        owner_id=current_user.id,
+    )
+
+    if workspace is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Workspace not found",
+        )
+
+    query_embedding = create_placeholder_embedding(payload.query)
+    results = await search_source_element_summaries(
+        db=db,
+        workspace_id=workspace.id,
+        owner_id=current_user.id,
+        query_embedding=query_embedding,
+        limit=payload.limit,
+    )
+
+    return WorkspaceSearchResponse(
+        results=[
+            WorkspaceSearchResult(
+                source_element_id=result.source_element_id,
+                document_id=result.document_id,
+                workspace_id=result.workspace_id,
+                summary_text=result.summary.summary_text,
+                distance=result.distance,
+            )
+            for result in results
+        ]
+    )
 
 
 @router.patch("/{workspace_id}", response_model=WorkspaceRead)

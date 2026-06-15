@@ -47,3 +47,20 @@ class SourceElementListRead(BaseModel):
 
 class SourceElementRead(SourceElementListRead):
     raw_content_text: str
+
+
+class WorkspaceSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=2_000)
+    limit: int = Field(default=5, ge=1, le=20)
+
+
+class WorkspaceSearchResult(BaseModel):
+    source_element_id: uuid.UUID
+    document_id: uuid.UUID
+    workspace_id: uuid.UUID
+    summary_text: str
+    distance: float
+
+
+class WorkspaceSearchResponse(BaseModel):
+    results: list[WorkspaceSearchResult]
