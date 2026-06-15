@@ -158,3 +158,23 @@ async def get_source_element_for_document(
         )
     )
     return result.scalar_one_or_none()
+
+
+async def search_source_element_summaries(
+    db: AsyncSession,
+    workspace_id: uuid.UUID,
+    owner_id: uuid.UUID,
+    query_embedding: list[float],
+    limit: int = 5,
+) -> list[SourceElementSummary]:
+    result = await db.execute(
+        select(SourceElementSummary)
+        .where(
+            SourceElementSummary.workspace_id == workspace_id,
+            SourceElementSummary.owner_id == owner_id,
+            SourceElementSummary.embedding.is_not(None),
+        )
+        .order_by(SourceElementSummary.embedding.l2_distance(query_embedding))
+        .limit(limit)
+    )
+    return list(result.scalars().all())
