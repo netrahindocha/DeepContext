@@ -57,11 +57,16 @@ async def test_create_document_creates_summary_with_embedding(
     )
 
     assert len(results) == 1
+    assert results[0].summary.document_id == document.id
+    assert results[0].summary.workspace_id == workspace.id
+    assert results[0].summary.owner_id == user.id
+    assert results[0].summary.summary_text == "Important project context"
+    assert results[0].summary.embedding is not None
+    assert results[0].source_element_id == results[0].summary.source_element_id
     assert results[0].document_id == document.id
     assert results[0].workspace_id == workspace.id
     assert results[0].owner_id == user.id
-    assert results[0].summary_text == "Important project context"
-    assert results[0].embedding is not None
+    assert results[0].distance >= 0
 
 
 @pytest.mark.anyio
@@ -112,8 +117,12 @@ async def test_search_source_element_summaries_scopes_by_workspace(
     )
 
     assert len(results) == 1
+    assert results[0].summary.document_id == first_document.id
+    assert results[0].summary.workspace_id == first_workspace.id
     assert results[0].document_id == first_document.id
     assert results[0].workspace_id == first_workspace.id
+    assert results[0].owner_id == user.id
+    assert results[0].distance >= 0
 
 
 @pytest.mark.anyio
@@ -163,5 +172,9 @@ async def test_search_source_element_summaries_scopes_by_owner(
     )
 
     assert len(results) == 1
+    assert results[0].summary.document_id == first_document.id
+    assert results[0].summary.owner_id == first_user.id
     assert results[0].document_id == first_document.id
+    assert results[0].workspace_id == workspace.id
     assert results[0].owner_id == first_user.id
+    assert results[0].distance >= 0

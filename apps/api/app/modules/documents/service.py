@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,16 @@ from app.modules.documents.models import (
 
 
 EMBEDDING_DIMENSION = 1536
+
+
+@dataclass(frozen=True)
+class SummarySearchResult:
+    summary: SourceElementSummary
+    source_element_id: uuid.UUID
+    document_id: uuid.UUID
+    workspace_id: uuid.UUID
+    owner_id: uuid.UUID
+    distance: float
 
 
 def create_placeholder_embedding(text: str) -> list[float]:
@@ -166,15 +177,30 @@ async def search_source_element_summaries(
     owner_id: uuid.UUID,
     query_embedding: list[float],
     limit: int = 5,
-) -> list[SourceElementSummary]:
+) -> list[SummarySearchResult]:
+    distance = SourceElementSummary.embedding.l2_distance(query_embedding).label(
+        "distance"
+    )
+
     result = await db.execute(
-        select(SourceElementSummary)
+        select(SourceElementSummary, distance)
         .where(
             SourceElementSummary.workspace_id == workspace_id,
             SourceElementSummary.owner_id == owner_id,
             SourceElementSummary.embedding.is_not(None),
         )
-        .order_by(SourceElementSummary.embedding.l2_distance(query_embedding))
+        .order_by(distance)
         .limit(limit)
     )
-    return list(result.scalars().all())
+
+    return [
+        SummarySearchResult(
+            summary=summary,
+            source_element_id=summary.source_element_id,
+            document_id=summary.document_id,
+            workspace_id=summary.workspace_id,
+            owner_id=summary.owner_id,
+            distance=distance_value,
+        )
+        for summary, distance_value in result.all()
+    ]
