@@ -5,6 +5,7 @@ from app.modules.health.router import router as health_router
 from app.modules.auth.router import router as auth_router
 from app.modules.documents.router import router as documents_router
 from app.modules.workspaces.router import router as workspaces_router
+from app.modules.chat.router import router as chat_router
 
 
 def create_app() -> FastAPI:
@@ -15,7 +16,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router)
     app.include_router(workspaces_router)
     app.include_router(documents_router)
-
+    app.include_router(chat_router)
     return app
 
 
