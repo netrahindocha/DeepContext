@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.core.config import get_settings
 from app.db.base import Base
 from app.modules.auth import models as auth_models  # noqa: F401
+from app.modules.chat import models as chat_models  # noqa: F401
 from app.modules.documents import models as document_models  # noqa: F401
 from app.modules.workspaces import models as workspace_models  # noqa: F401
 
