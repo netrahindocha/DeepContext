@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,11 +11,22 @@ from app.modules.documents.service import (
 )
 
 
-def create_placeholder_answer(question: str, evidence_texts: list[str]) -> str:
-    if not evidence_texts:
+@dataclass(frozen=True)
+class AnswerEvidence:
+    source_element_id: uuid.UUID
+    document_id: uuid.UUID
+    workspace_id: uuid.UUID
+    raw_content_text: str
+
+
+def generate_answer_from_evidence(
+    question: str,
+    evidence: list[AnswerEvidence],
+) -> str:
+    if not evidence:
         return "I could not find relevant source content for that question."
 
-    joined_evidence = " ".join(evidence_texts)
+    joined_evidence = " ".join(item.raw_content_text for item in evidence)
     preview = joined_evidence[:500]
 
     return f"Based on the retrieved source content: {preview}"
@@ -42,19 +54,25 @@ async def answer_workspace_question(
         summary_results=summary_results,
     )
 
-    evidence_texts = [
-        source_element.raw_content_text for source_element in source_elements
-    ]
-    answer = create_placeholder_answer(question=question, evidence_texts=evidence_texts)
-
-    citations = [
-        ChatCitation(
+    evidence = [
+        AnswerEvidence(
             source_element_id=source_element.id,
             document_id=source_element.document_id,
             workspace_id=source_element.workspace_id,
-            snippet=source_element.raw_content_text[:200],
+            raw_content_text=source_element.raw_content_text,
         )
         for source_element in source_elements
+    ]
+    answer = generate_answer_from_evidence(question=question, evidence=evidence)
+
+    citations = [
+        ChatCitation(
+            source_element_id=item.source_element_id,
+            document_id=item.document_id,
+            workspace_id=item.workspace_id,
+            snippet=item.raw_content_text[:200],
+        )
+        for item in evidence
     ]
 
     return answer, citations

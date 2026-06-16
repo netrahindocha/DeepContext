@@ -218,13 +218,18 @@ async def get_source_elements_for_summaries(
         return []
 
     result = await db.execute(
-        select(SourceElement)
-        .where(
+        select(SourceElement).where(
             SourceElement.id.in_(source_element_ids),
             SourceElement.workspace_id == workspace_id,
             SourceElement.owner_id == owner_id,
         )
-        .order_by(SourceElement.element_index.asc())
     )
+    source_elements_by_id = {
+        source_element.id: source_element for source_element in result.scalars().all()
+    }
 
-    return list(result.scalars().all())
+    return [
+        source_elements_by_id[source_element_id]
+        for source_element_id in source_element_ids
+        if source_element_id in source_elements_by_id
+    ]
